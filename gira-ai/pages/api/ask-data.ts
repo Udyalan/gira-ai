@@ -1,1 +1,0 @@
-// Código para interação com OpenAI e análise de dados

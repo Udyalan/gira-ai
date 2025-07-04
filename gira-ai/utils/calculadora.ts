@@ -1,1 +1,0 @@
-// Função para cálculo de preço de venda
