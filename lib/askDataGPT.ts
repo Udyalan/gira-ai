@@ -1,6 +1,9 @@
+// File: lib/askDataGPT.ts
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 interface DataContext {
   columns: string[];
@@ -9,8 +12,9 @@ interface DataContext {
 }
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system";
   content: string;
+  name?: string;
 }
 
 export async function askDataGPT(
@@ -23,23 +27,33 @@ export async function askDataGPT(
 - Colunas disponíveis: ${context.columns.join(", ")}.
 - Estatísticas por coluna:
 ${Object.entries(context.stats)
-    .map(([col, s]) => `  • ${col}: soma=${s.sum}, média=${s.avg}, min=${s.min}, max=${s.max}`)
+    .map(
+      ([col, s]) =>
+        `  • ${col}: soma=${s.sum}, média=${s.avg}, min=${s.min}, max=${s.max}`
+    )
     .join("\n")}
 - Resumo geral: ${context.summary}
 
 Responda de forma clara, sucinta e com base nos dados fornecidos. Se a pergunta for irrelevante ou impossível de responder com os dados, explique por quê.`;
 
-  const messages = [
+  // Prepara mensagens para o chat
+  const messages: {
+    role: "user" | "assistant" | "system";
+    content: string;
+    name?: string;
+  }[] = [
     { role: "system", content: systemPrompt },
     ...history,
-    { role: "user", content: question }
+    { role: "user", content: question },
   ];
 
+  // Chama a API da OpenAI
   const response = await openai.chat.completions.create({
     model: "gpt-4",
     messages,
-    temperature: 0.3
+    temperature: 0.3,
   });
 
   return response.choices[0].message?.content ?? "";
 }
+
