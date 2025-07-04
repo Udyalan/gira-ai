@@ -1,0 +1,1 @@
+export default function Home() { return <div>Bem-vindo ao Gira.ai</div>; }
