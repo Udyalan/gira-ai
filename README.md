@@ -1,1 +1,0 @@
-# Gira.ai - Micro IA para Pequenos Negócios
