@@ -1,1 +1,0 @@
-// Função para pergunta contextualizada à IA
