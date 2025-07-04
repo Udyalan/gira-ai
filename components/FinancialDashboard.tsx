@@ -1,1 +1,0 @@
-// Componente do dashboard financeiro com gráficos
