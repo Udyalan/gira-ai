@@ -1,1 +1,5 @@
-// Conteúdo simulado de package.json para projeto Gira.ai
+{
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
