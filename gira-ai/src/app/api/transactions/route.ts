@@ -15,7 +15,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const mapped = transactions.map((t: any) => ({
+  interface IncomingTx {
+    date: string;
+    category: string;
+    amount: number;
+    type: "income" | "expense";
+  }
+
+  const mapped = (transactions as IncomingTx[]).map((t) => ({
     user_id: session.user.id,
     date: t.date,
     category: t.category,
