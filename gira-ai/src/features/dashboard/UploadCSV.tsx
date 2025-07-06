@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Papa from "papaparse";
+import Papa, { ParseError, ParseResult } from "papaparse";
 import * as XLSX from "xlsx";
 import useTransactions from "@/hooks/useTransactions";
 import dayjs from "dayjs";
@@ -15,13 +15,15 @@ interface Transaction {
   type: "income" | "expense";
 }
 
+type RawRow = Record<string, unknown>;
+
 export default function UploadCSV() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { mutate } = useTransactions();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  const handleFile = async (file: File) => {
+  const handleFile = async (file: File): Promise<void> => {
     setLoading(true);
     setMessage(null);
 
@@ -29,20 +31,19 @@ export default function UploadCSV() {
       const buffer = await file.arrayBuffer();
       const wb = XLSX.read(buffer, { type: "array" });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const json: any[] = XLSX.utils.sheet_to_json(ws);
+      const json = XLSX.utils.sheet_to_json<RawRow>(ws);
       await handleParsed(json);
       return;
     }
 
     // CSV fallback
-    Papa.parse(file, {
+    Papa.parse<RawRow>(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results: Papa.ParseResult<Record<string, string>>) => {
-        const parsed = results.data as any[];
-        await handleParsed(parsed);
+      complete: async (results: ParseResult<RawRow>) => {
+        await handleParsed(results.data);
       },
-      error: (err: any) => {
+      error: (err: ParseError) => {
         console.error(err);
         setMessage("Falha ao ler CSV");
         setLoading(false);
@@ -50,12 +51,16 @@ export default function UploadCSV() {
     });
   };
 
-  const handleParsed = async (rows: any[]) => {
+  const handleParsed = async (rows: RawRow[]): Promise<void> => {
     const data: Transaction[] = rows.map((row) => ({
-      date: parseDate(row.date || row.Date || row.data),
-      category: row.category || row.Category || "Outro",
-      amount: Number(row.amount || row.Amount || row.valor),
-      type: (row.type || row.Type || row.tipo || "").toLowerCase() === "expense" ? "expense" : "income",
+      date: parseDate(String(row.date ?? row.Date ?? row.data ?? "")),
+      category: String(row.category ?? row.Category ?? "Outro"),
+      amount: Number(row.amount ?? row.Amount ?? row.valor ?? 0),
+      type:
+        String(row.type ?? row.Type ?? row.tipo ?? "income").toLowerCase() ===
+        "expense"
+          ? "expense"
+          : "income",
     }));
 
     const res = await fetch("/api/transactions", {
