@@ -23,11 +23,15 @@ export async function POST(request: NextRequest) {
     type: t.type,
   }));
 
-  const { error } = await supabase.from("transactions").insert(mapped);
+  // Upsert to avoid duplicados (chave única recomendada: user_id, date, category, amount, type)
+  const { error, count } = await supabase
+    .from("transactions")
+    .upsert(mapped, { onConflict: "user_id,date,category,amount,type", count: "exact" });
+
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ inserted: count });
 }
 
 export async function GET() {

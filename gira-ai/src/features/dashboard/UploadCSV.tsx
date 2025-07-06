@@ -4,6 +4,9 @@ import { useRef, useState } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import useTransactions from "@/hooks/useTransactions";
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+dayjs.extend(customParseFormat);
 
 interface Transaction {
   date: string;
@@ -49,7 +52,7 @@ export default function UploadCSV() {
 
   const handleParsed = async (rows: any[]) => {
     const data: Transaction[] = rows.map((row) => ({
-      date: row.date || row.Date || row.data,
+      date: parseDate(row.date || row.Date || row.data),
       category: row.category || row.Category || "Outro",
       amount: Number(row.amount || row.Amount || row.valor),
       type: (row.type || row.Type || row.tipo || "").toLowerCase() === "expense" ? "expense" : "income",
@@ -62,13 +65,25 @@ export default function UploadCSV() {
     });
 
     if (res.ok) {
-      setMessage("Dados enviados com sucesso!");
+      const json = await res.json();
+      setMessage(`Foram inseridos ${json.inserted ?? data.length} registros.`);
       mutate();
     } else {
       const txt = await res.text();
       setMessage(`Erro ao enviar: ${txt}`);
     }
     setLoading(false);
+  };
+
+  const parseDate = (val: string): string => {
+    // tenta formatos comuns dia/mês/ano ou mês/dia/ano, fallback ISO
+    const formats = ["DD/MM/YYYY", "D/M/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"];
+    for (const fmt of formats) {
+      const d = dayjs(val, fmt, true);
+      if (d.isValid()) return d.format("YYYY-MM-DD");
+    }
+    // se falhar, retorna string original (Supabase pode tentar converter)
+    return val;
   };
 
   return (
