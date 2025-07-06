@@ -5,7 +5,7 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2023-10-16",
+  // Use default apiVersion from library typings
   appInfo: {
     name: "gira.ai",
     version: "1.0.0",
