@@ -1,4 +1,6 @@
 import type { NextAuthOptions } from "next-auth";
+import type { User } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import GithubProvider from "next-auth/providers/github";
@@ -25,7 +27,7 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
-        return { id: data.user.id, email: data.user.email } as any;
+        return { id: data.user.id, email: data.user.email } satisfies User;
       },
     }),
     GoogleProvider({
@@ -43,12 +45,15 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.id = (user as any).id;
+      if (user && "id" in user) {
+        (token as JWT & { id?: string }).id = (user as User & { id: string }).id;
+      }
       return token;
     },
     async session({ session, token }) {
-      if (session.user && token.id) {
-        (session.user as any).id = token.id;
+      const id = (token as JWT & { id?: string }).id;
+      if (session.user && id) {
+        (session.user as User & { id: string }).id = id;
       }
       return session;
     },
