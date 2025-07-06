@@ -18,5 +18,6 @@ export const config = {
     "/calendar/:path*",
     "/marketing/:path*",
     "/pricing/:path*",
+    "/pro/:path*",
   ],
 };
