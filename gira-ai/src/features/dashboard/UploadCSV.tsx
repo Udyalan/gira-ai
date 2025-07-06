@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
+import useTransactions from "@/hooks/useTransactions";
 
 interface Transaction {
   date: string;
@@ -12,40 +14,30 @@ interface Transaction {
 
 export default function UploadCSV() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { mutate } = useTransactions();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const handleFile = async (file: File) => {
     setLoading(true);
     setMessage(null);
+
+    if (file.name.endsWith(".xlsx") || file.name.endsWith(".xls")) {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json: any[] = XLSX.utils.sheet_to_json(ws);
+      await handleParsed(json);
+      return;
+    }
+
+    // CSV fallback
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results: Papa.ParseResult<Record<string, string>>) => {
-        const data: Transaction[] = (results.data as any[]).map((row) => ({
-          date: row.date || row.Date || row.data,
-          category: row.category || row.Category || "Outro",
-          amount: Number(row.amount || row.Amount || row.valor),
-          type:
-            (row.type || row.Type || row.tipo || "").toLowerCase() ===
-            "expense"
-              ? "expense"
-              : "income",
-        }));
-
-        const res = await fetch("/api/transactions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transactions: data }),
-        });
-
-        if (res.ok) {
-          setMessage("Dados enviados com sucesso!");
-        } else {
-          const txt = await res.text();
-          setMessage(`Erro ao enviar: ${txt}`);
-        }
-        setLoading(false);
+        const parsed = results.data as any[];
+        await handleParsed(parsed);
       },
       error: (err: any) => {
         console.error(err);
@@ -53,6 +45,30 @@ export default function UploadCSV() {
         setLoading(false);
       },
     });
+  };
+
+  const handleParsed = async (rows: any[]) => {
+    const data: Transaction[] = rows.map((row) => ({
+      date: row.date || row.Date || row.data,
+      category: row.category || row.Category || "Outro",
+      amount: Number(row.amount || row.Amount || row.valor),
+      type: (row.type || row.Type || row.tipo || "").toLowerCase() === "expense" ? "expense" : "income",
+    }));
+
+    const res = await fetch("/api/transactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transactions: data }),
+    });
+
+    if (res.ok) {
+      setMessage("Dados enviados com sucesso!");
+      mutate();
+    } else {
+      const txt = await res.text();
+      setMessage(`Erro ao enviar: ${txt}`);
+    }
+    setLoading(false);
   };
 
   return (

@@ -1,39 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-interface Transaction {
-  date: string;
-  category: string;
-  amount: number;
-  type: "income" | "expense";
-}
+import useTransactions from "@/hooks/useTransactions";
 
 export default function SummaryCards() {
-  const [data, setData] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { transactions, isLoading } = useTransactions();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      const res = await fetch("/api/transactions");
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.transactions as Transaction[]);
-      }
-      setLoading(false);
-    };
-    fetchData();
-  }, []);
-
-  const revenue = data
+  const revenue = transactions
     .filter((t) => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
-  const expense = data
+  const expense = transactions
     .filter((t) => t.type === "expense")
     .reduce((sum, t) => sum + t.amount, 0);
   const profit = revenue - expense;
 
-  if (loading) return <p>Carregando...</p>;
+  if (isLoading) return <p>Carregando...</p>;
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full max-w-4xl">
