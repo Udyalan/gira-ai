@@ -53,4 +53,23 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
+  events: {
+    async signIn({ user, account }) {
+      if (account?.provider !== "credentials") {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!data) {
+          await supabase.from("profiles").insert({
+            id: user.id,
+            email: user.email,
+            plan: "free",
+          });
+        }
+      }
+    },
+  },
 };
