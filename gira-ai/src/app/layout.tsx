@@ -4,6 +4,7 @@ import "./globals.css";
 import Link from "next/link";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import Providers from "@/components/Providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <Providers>
         <nav className="w-full flex justify-end gap-4 p-4 border-b">
           {session ? (
             <form action="/api/auth/signout" method="post">
@@ -48,6 +50,7 @@ export default async function RootLayout({
           )}
         </nav>
         {children}
+        </Providers>
       </body>
     </html>
   );
