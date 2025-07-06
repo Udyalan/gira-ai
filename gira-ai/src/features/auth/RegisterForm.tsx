@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { signIn } from "next-auth/react";
 import OAuthButtons from "./OAuthButtons";
 import Link from "next/link";
+import TextInput from "@/components/ui/TextInput";
 
 const schema = z
   .object({
@@ -65,33 +66,30 @@ export default function RegisterForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold text-center">Criar conta</h1>
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-        <input
-          {...register("email", { required: true })}
+
+        <TextInput
+          label="Email"
+          placeholder="seu@email.com"
           type="email"
-          placeholder="Email"
-          className={`border rounded px-3 py-2 focus:ring-2 focus:outline-none ${errors.email ? "border-red-500 focus:ring-red-200" : "focus:ring-blue-500/40"}`}
+          register={register("email")}
+          error={errors.email}
         />
-        {errors.email && (
-          <p className="text-xs text-red-500">{errors.email.message}</p>
-        )}
-        <input
-          {...register("password", { required: true })}
-          type="password"
-          placeholder="Senha"
-          className={`border rounded px-3 py-2 focus:ring-2 focus:outline-none ${errors.password ? "border-red-500 focus:ring-red-200" : "focus:ring-blue-500/40"}`}
+
+        <TextInput
+          label="Senha"
+          placeholder="••••••••"
+          enablePasswordToggle
+          register={register("password")}
+          error={errors.password}
         />
-        {errors.password && (
-          <p className="text-xs text-red-500">{errors.password.message}</p>
-        )}
-        <input
-          {...register("confirmPassword", { required: true })}
-          type="password"
-          placeholder="Confirmar senha"
-          className={`border rounded px-3 py-2 focus:ring-2 focus:outline-none ${errors.confirmPassword ? "border-red-500 focus:ring-red-200" : "focus:ring-blue-500/40"}`}
+
+        <TextInput
+          label="Confirmar senha"
+          placeholder="••••••••"
+          enablePasswordToggle
+          register={register("confirmPassword")}
+          error={errors.confirmPassword}
         />
-        {errors.confirmPassword && (
-          <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>
-        )}
         <button
           type="submit"
           disabled={isSubmitting}
