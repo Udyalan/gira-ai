@@ -1,6 +1,8 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
@@ -8,13 +10,25 @@ import { signIn } from "next-auth/react";
 import OAuthButtons from "./OAuthButtons";
 import Link from "next/link";
 
-interface Inputs {
-  email: string;
-  password: string;
-}
+const schema = z
+  .object({
+    email: z.string().email({ message: "Email inválido" }),
+    password: z.string().min(6, { message: "Mínimo 6 caracteres" }),
+    confirmPassword: z.string().min(6, { message: "Confirme a senha" }),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "As senhas não conferem",
+    path: ["confirmPassword"],
+  });
+
+type Inputs = z.infer<typeof schema>;
 
 export default function RegisterForm() {
-  const { register, handleSubmit } = useForm<Inputs>();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<Inputs>({ resolver: zodResolver(schema) });
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -50,24 +64,40 @@ export default function RegisterForm() {
     <div className="w-full max-w-sm bg-white dark:bg-gray-800 p-8 rounded shadow flex flex-col gap-4">
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold text-center">Criar conta</h1>
-        {error && <p className="text-red-500 text-sm">{error}</p>}
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         <input
           {...register("email", { required: true })}
           type="email"
           placeholder="Email"
-          className="border rounded p-2"
+          className={`border rounded px-3 py-2 focus:ring-2 focus:outline-none ${errors.email ? "border-red-500 focus:ring-red-200" : "focus:ring-blue-500/40"}`}
         />
+        {errors.email && (
+          <p className="text-xs text-red-500">{errors.email.message}</p>
+        )}
         <input
           {...register("password", { required: true })}
           type="password"
           placeholder="Senha"
-          className="border rounded p-2"
+          className={`border rounded px-3 py-2 focus:ring-2 focus:outline-none ${errors.password ? "border-red-500 focus:ring-red-200" : "focus:ring-blue-500/40"}`}
         />
+        {errors.password && (
+          <p className="text-xs text-red-500">{errors.password.message}</p>
+        )}
+        <input
+          {...register("confirmPassword", { required: true })}
+          type="password"
+          placeholder="Confirmar senha"
+          className={`border rounded px-3 py-2 focus:ring-2 focus:outline-none ${errors.confirmPassword ? "border-red-500 focus:ring-red-200" : "focus:ring-blue-500/40"}`}
+        />
+        {errors.confirmPassword && (
+          <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>
+        )}
         <button
           type="submit"
-          className="bg-black text-white rounded py-2 hover:bg-gray-800 transition-colors"
+          disabled={isSubmitting}
+          className="bg-black text-white rounded py-2 disabled:opacity-60 hover:bg-gray-800 transition-colors"
         >
-          Registrar
+          {isSubmitting ? "Registrando..." : "Registrar"}
         </button>
       </form>
       <div className="flex items-center gap-2">
