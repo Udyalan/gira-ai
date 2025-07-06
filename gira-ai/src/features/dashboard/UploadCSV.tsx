@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Papa, { ParseError, ParseResult } from "papaparse";
 import * as XLSX from "xlsx";
 import useTransactions from "@/hooks/useTransactions";
+import usePlan from "@/hooks/usePlan";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 dayjs.extend(customParseFormat);
@@ -20,6 +21,7 @@ type RawRow = Record<string, unknown>;
 export default function UploadCSV() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const { mutate } = useTransactions();
+  const { plan } = usePlan();
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -52,6 +54,12 @@ export default function UploadCSV() {
   };
 
   const handleParsed = async (rows: RawRow[]): Promise<void> => {
+    if (plan !== "pro" && rows.length > 50) {
+      setMessage("Plano gratuito permite até 50 transações por upload.");
+      setLoading(false);
+      return;
+    }
+
     const data: Transaction[] = rows.map((row) => ({
       date: parseDate(String(row.date ?? row.Date ?? row.data ?? "")),
       category: String(row.category ?? row.Category ?? "Outro"),
