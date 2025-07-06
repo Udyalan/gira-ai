@@ -5,6 +5,7 @@ import UploadCSV from "@/features/dashboard/UploadCSV";
 import SummaryCards from "@/features/dashboard/SummaryCards";
 import CashFlowChart from "@/features/dashboard/CashFlowChart";
 import CategoryPieChart from "@/features/dashboard/CategoryPieChart";
+import AiSummary from "@/features/dashboard/AiSummary";
 
 export default function DashboardPage() {
   const { data: session } = useSession();
@@ -20,6 +21,7 @@ export default function DashboardPage() {
             <CashFlowChart />
             <CategoryPieChart />
           </div>
+          <AiSummary />
         </>
       ) : (
         <p className="text-lg">Carregando...</p>
