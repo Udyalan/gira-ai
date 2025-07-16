@@ -1,0 +1,28 @@
+User-agent: *
+Allow: /
+
+# Permitir crawling de imagens
+Allow: /images/
+Allow: /uploads/
+Allow: /_next/static/
+Allow: /_next/image
+
+# Bloquear áreas administrativas
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /carrinho
+Disallow: /checkout
+Disallow: /pedidos
+
+# Bloquear arquivos específicos
+Disallow: /*.json
+Disallow: /*?*sort=
+Disallow: /*?*filter=
+Disallow: /*?*page=
+
+# Sitemap
+Sitemap: https://malibi.com.br/sitemap.xml
+
+# Tempo de espera para crawl (recomendado para e-commerce)
+Crawl-delay: 1

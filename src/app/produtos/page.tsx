@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { Star, Filter, Grid, List, ChevronDown } from 'lucide-react'
+import { Search, Filter, Grid, List, ArrowUpDown, Heart, Star } from 'lucide-react'
+import { generateBreadcrumbSchema, injectJsonLd } from '@/lib/seo'
 
 interface Product {
   id: string
@@ -17,14 +18,13 @@ interface Product {
   category: {
     id: string
     name: string
-    slug: string
   }
   variants: Array<{
     id: string
     size: string
     color: string
-    stock: number
     price: number | null
+    stock: number
   }>
 }
 
@@ -34,87 +34,92 @@ interface Category {
   slug: string
 }
 
+const sortOptions = [
+  { value: 'name', label: 'Nome A-Z' },
+  { value: 'price_asc', label: 'Menor Preço' },
+  { value: 'price_desc', label: 'Maior Preço' },
+  { value: 'newest', label: 'Mais Recentes' },
+  { value: 'featured', label: 'Destaques' }
+]
+
 export default function ProductsPage() {
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState('newest')
-  const [filters, setFilters] = useState({
-    category: '',
-    priceRange: '',
-    inStock: false
-  })
+  
+  // Filters from URL
+  const currentCategory = searchParams.get('categoria') || ''
+  const currentSearch = searchParams.get('busca') || ''
+  const currentSort = searchParams.get('ordem') || 'name'
+  
+  // Local filters
+  const [searchTerm, setSearchTerm] = useState(currentSearch)
+  const [selectedCategory, setSelectedCategory] = useState(currentCategory)
+  const [sortBy, setSortBy] = useState(currentSort)
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 })
+  const [showFilters, setShowFilters] = useState(false)
 
-  const searchParams = useSearchParams()
-  const searchQuery = searchParams.get('search') || ''
-  const categoryFilter = searchParams.get('category') || ''
+  // Breadcrumb Schema
+  const breadcrumbItems = [
+    { name: 'Início', url: '/' },
+    { name: 'Produtos' }
+  ]
 
-  useEffect(() => {
-    fetchCategories()
-    fetchProducts()
-  }, [searchQuery, categoryFilter, sortBy, filters])
-
-  const fetchCategories = async () => {
-    try {
-      const response = await fetch('/api/categories')
-      const data = await response.json()
-      setCategories(data)
-    } catch (error) {
-      console.error('Error fetching categories:', error)
+  if (selectedCategory) {
+    const category = categories.find(c => c.slug === selectedCategory)
+    if (category) {
+      breadcrumbItems.push({ name: category.name })
     }
   }
 
+  const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems)
+
+  useEffect(() => {
+    fetchProducts()
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
+    // Update URL when filters change
+    const params = new URLSearchParams()
+    if (selectedCategory) params.set('categoria', selectedCategory)
+    if (searchTerm) params.set('busca', searchTerm)
+    if (sortBy !== 'name') params.set('ordem', sortBy)
+    
+    const newUrl = `/produtos${params.toString() ? '?' + params.toString() : ''}`
+    window.history.replaceState(null, '', newUrl)
+  }, [selectedCategory, searchTerm, sortBy])
+
   const fetchProducts = async () => {
-    setLoading(true)
     try {
       const params = new URLSearchParams()
-      if (searchQuery) params.append('search', searchQuery)
-      if (categoryFilter || filters.category) {
-        params.append('category', categoryFilter || filters.category)
-      }
+      if (selectedCategory) params.append('categoria', selectedCategory)
+      if (searchTerm) params.append('busca', searchTerm)
+      if (sortBy) params.append('ordem', sortBy)
 
-      const response = await fetch(`/api/products?${params.toString()}`)
-      const data = await response.json()
-      
-      let sortedProducts = data.products || []
-      
-      // Apply sorting
-      switch (sortBy) {
-        case 'price-asc':
-          sortedProducts.sort((a: Product, b: Product) => Number(a.basePrice) - Number(b.basePrice))
-          break
-        case 'price-desc':
-          sortedProducts.sort((a: Product, b: Product) => Number(b.basePrice) - Number(a.basePrice))
-          break
-        case 'name':
-          sortedProducts.sort((a: Product, b: Product) => a.name.localeCompare(b.name))
-          break
-        default:
-          // newest first (default)
-          break
+      const response = await fetch(`/api/products?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setProducts(data.products || [])
       }
-
-      // Apply filters
-      if (filters.inStock) {
-        sortedProducts = sortedProducts.filter((product: Product) => 
-          product.variants.some(variant => variant.stock > 0)
-        )
-      }
-
-      if (filters.priceRange) {
-        const [min, max] = filters.priceRange.split('-').map(Number)
-        sortedProducts = sortedProducts.filter((product: Product) => {
-          const price = Number(product.basePrice)
-          return price >= min && price <= max
-        })
-      }
-
-      setProducts(sortedProducts)
     } catch (error) {
       console.error('Error fetching products:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch('/api/categories')
+      if (response.ok) {
+        const data = await response.json()
+        setCategories(data)
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error)
     }
   }
 
@@ -127,183 +132,248 @@ export default function ProductsPage() {
   }
 
   const getLowestPrice = (product: Product) => {
-    const prices = product.variants
-      .map(v => v.price || Number(product.basePrice))
-      .filter(price => price > 0)
+    const variantPrices = product.variants
+      .filter(v => v.price)
+      .map(v => v.price as number)
     
-    return prices.length > 0 ? Math.min(...prices) : Number(product.basePrice)
+    if (variantPrices.length > 0) {
+      return Math.min(...variantPrices)
+    }
+    return Number(product.basePrice)
   }
 
-  const hasDiscount = (product: Product) => {
-    const basePrice = Number(product.basePrice)
-    const lowestPrice = getLowestPrice(product)
-    return lowestPrice < basePrice
+  const handleSearch = () => {
+    fetchProducts()
   }
 
-  const getDiscountPercentage = (product: Product) => {
-    const basePrice = Number(product.basePrice)
-    const lowestPrice = getLowestPrice(product)
-    return Math.round(((basePrice - lowestPrice) / basePrice) * 100)
+  const clearFilters = () => {
+    setSearchTerm('')
+    setSelectedCategory('')
+    setSortBy('name')
+    setPriceRange({ min: 0, max: 1000 })
+  }
+
+  const currentCategoryName = categories.find(c => c.slug === selectedCategory)?.name
+
+  // JSON-LD para produtos
+  const productsSchema = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": products.map((product, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Product",
+        "name": product.name,
+        "description": product.description,
+        "image": getProductImages(product.imageUrls),
+        "url": `/produto/${product.slug}`,
+        "offers": {
+          "@type": "Offer",
+          "price": getLowestPrice(product),
+          "priceCurrency": "BRL",
+          "availability": "https://schema.org/InStock"
+        }
+      }
+    }))
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">
-          {searchQuery ? `Resultados para "${searchQuery}"` : 
-           categoryFilter ? `Categoria: ${categories.find(c => c.slug === categoryFilter)?.name || categoryFilter}` : 
-           'Todos os Produtos'}
-        </h1>
-        <p className="text-gray-600">
-          Descubra nossa coleção completa de lingerie feminina
-        </p>
-      </div>
+    <>
+      {/* SEO Schema */}
+      {injectJsonLd(breadcrumbSchema)}
+      {injectJsonLd(productsSchema)}
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar Filters */}
-        <div className="lg:w-64 space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border p-6">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-              <Filter size={20} className="mr-2" />
-              Filtros
-            </h3>
-
-            {/* Categories */}
-            <div className="mb-6">
-              <h4 className="font-medium text-gray-700 mb-3">Categorias</h4>
-              <div className="space-y-2">
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="category"
-                    value=""
-                    checked={filters.category === ''}
-                    onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                    className="w-4 h-4 text-malibi-rose-600 border-gray-300 focus:ring-malibi-rose-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-600">Todas</span>
-                </label>
-                {categories.map((category) => (
-                  <label key={category.id} className="flex items-center">
-                    <input
-                      type="radio"
-                      name="category"
-                      value={category.slug}
-                      checked={filters.category === category.slug}
-                      onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                      className="w-4 h-4 text-malibi-rose-600 border-gray-300 focus:ring-malibi-rose-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-600">{category.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Price Range */}
-            <div className="mb-6">
-              <h4 className="font-medium text-gray-700 mb-3">Faixa de Preço</h4>
-              <div className="space-y-2">
-                {[
-                  { label: 'Até R$ 50', value: '0-50' },
-                  { label: 'R$ 50 - R$ 100', value: '50-100' },
-                  { label: 'R$ 100 - R$ 150', value: '100-150' },
-                  { label: 'Acima de R$ 150', value: '150-9999' },
-                ].map((range) => (
-                  <label key={range.value} className="flex items-center">
-                    <input
-                      type="radio"
-                      name="priceRange"
-                      value={range.value}
-                      checked={filters.priceRange === range.value}
-                      onChange={(e) => setFilters({ ...filters, priceRange: e.target.value })}
-                      className="w-4 h-4 text-malibi-rose-600 border-gray-300 focus:ring-malibi-rose-500"
-                    />
-                    <span className="ml-2 text-sm text-gray-600">{range.label}</span>
-                  </label>
-                ))}
-                <label className="flex items-center">
-                  <input
-                    type="radio"
-                    name="priceRange"
-                    value=""
-                    checked={filters.priceRange === ''}
-                    onChange={(e) => setFilters({ ...filters, priceRange: e.target.value })}
-                    className="w-4 h-4 text-malibi-rose-600 border-gray-300 focus:ring-malibi-rose-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-600">Todos os preços</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Stock */}
-            <div>
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={filters.inStock}
-                  onChange={(e) => setFilters({ ...filters, inStock: e.target.checked })}
-                  className="w-4 h-4 text-malibi-rose-600 border-gray-300 rounded focus:ring-malibi-rose-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Apenas em estoque</span>
-              </label>
-            </div>
+      <div className="min-h-screen bg-gray-50">
+        {/* Breadcrumb */}
+        <nav className="bg-white border-b" aria-label="Breadcrumb">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <ol className="flex items-center space-x-2 text-sm">
+              <li>
+                <Link href="/" className="text-gray-500 hover:text-malibi-rose-600 transition-colors">
+                  Início
+                </Link>
+              </li>
+              <li className="text-gray-400">/</li>
+              <li>
+                <span className="text-gray-900 font-medium">Produtos</span>
+              </li>
+              {currentCategoryName && (
+                <>
+                  <li className="text-gray-400">/</li>
+                  <li>
+                    <span className="text-malibi-rose-600 font-medium">{currentCategoryName}</span>
+                  </li>
+                </>
+              )}
+            </ol>
           </div>
-        </div>
+        </nav>
 
-        {/* Main Content */}
-        <div className="flex-1">
-          {/* Toolbar */}
-          <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div className="text-sm text-gray-600">
-                {products.length} produto{products.length !== 1 ? 's' : ''} encontrado{products.length !== 1 ? 's' : ''}
-              </div>
-              
-              <div className="flex items-center gap-4">
-                {/* Sort */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-gray-600">Ordenar por:</label>
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                    className="border border-gray-300 rounded-md px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-malibi-rose-500"
-                  >
-                    <option value="newest">Mais recentes</option>
-                    <option value="price-asc">Menor preço</option>
-                    <option value="price-desc">Maior preço</option>
-                    <option value="name">Nome A-Z</option>
-                  </select>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Header */}
+          <header className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              {currentCategoryName 
+                ? `${currentCategoryName} Malíbi - Lingerie Premium` 
+                : 'Catálogo Completo - Lingerie Feminina Malíbi'
+              }
+            </h1>
+            <p className="text-lg text-gray-600 max-w-3xl">
+              {currentCategoryName
+                ? `Descubra nossa coleção exclusiva de ${currentCategoryName.toLowerCase()} com qualidade premium e design sofisticado.`
+                : 'Explore nossa coleção completa de lingerie feminina premium. Conjuntos sensuais, sutiãs confortáveis, calcinhas delicadas e bodies elegantes.'
+              }
+            </p>
+          </header>
+
+          {/* Search and Filters */}
+          <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+              {/* Search */}
+              <div className="flex-1 max-w-md">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Buscar produtos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-malibi-rose-500 focus:border-transparent"
+                    aria-label="Buscar produtos de lingerie"
+                  />
                 </div>
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex gap-4 items-center">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-malibi-rose-500"
+                  aria-label="Filtrar por categoria"
+                >
+                  <option value="">Todas as categorias</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.slug}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Sort */}
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-malibi-rose-500"
+                  aria-label="Ordenar produtos"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
 
                 {/* View Mode */}
-                <div className="flex items-center border border-gray-300 rounded-md">
+                <div className="flex border border-gray-300 rounded-lg overflow-hidden">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-2 ${viewMode === 'grid' ? 'bg-malibi-rose-100 text-malibi-rose-600' : 'text-gray-400'}`}
+                    className={`p-3 ${viewMode === 'grid' ? 'bg-malibi-rose-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    aria-label="Visualização em grade"
                   >
-                    <Grid size={16} />
+                    <Grid size={20} />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-2 ${viewMode === 'list' ? 'bg-malibi-rose-100 text-malibi-rose-600' : 'text-gray-400'}`}
+                    className={`p-3 ${viewMode === 'list' ? 'bg-malibi-rose-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                    aria-label="Visualização em lista"
                   >
-                    <List size={16} />
+                    <List size={20} />
                   </button>
                 </div>
               </div>
             </div>
+
+            {/* Active Filters */}
+            {(selectedCategory || searchTerm) && (
+              <div className="mt-4 flex items-center gap-2">
+                <span className="text-sm text-gray-600">Filtros ativos:</span>
+                {selectedCategory && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-malibi-rose-100 text-malibi-rose-800">
+                    {currentCategoryName}
+                    <button
+                      onClick={() => setSelectedCategory('')}
+                      className="ml-2 hover:text-malibi-rose-600"
+                      aria-label={`Remover filtro ${currentCategoryName}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {searchTerm && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-malibi-rose-100 text-malibi-rose-800">
+                    "{searchTerm}"
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="ml-2 hover:text-malibi-rose-600"
+                      aria-label="Remover busca"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                <button
+                  onClick={clearFilters}
+                  className="text-sm text-malibi-rose-600 hover:text-malibi-rose-700 font-medium"
+                >
+                  Limpar todos
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Products Grid */}
+          {/* Results Count */}
+          <div className="flex items-center justify-between mb-6">
+            <p className="text-gray-600">
+              {loading ? 'Carregando...' : `${products.length} produto${products.length !== 1 ? 's' : ''} encontrado${products.length !== 1 ? 's' : ''}`}
+            </p>
+          </div>
+
+          {/* Products Grid/List */}
           {loading ? (
-            <div className="flex justify-center items-center py-20">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-malibi-rose-600"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="bg-white rounded-lg shadow-sm border overflow-hidden animate-pulse">
+                  <div className="aspect-square bg-gray-200" />
+                  <div className="p-4 space-y-3">
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                    <div className="h-4 bg-gray-200 rounded w-1/2" />
+                    <div className="h-6 bg-gray-200 rounded w-1/3" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : products.length === 0 ? (
-            <div className="text-center py-20">
-              <p className="text-gray-500 text-lg">Nenhum produto encontrado</p>
-              <p className="text-gray-400 text-sm mt-2">Tente ajustar os filtros ou buscar por outros termos</p>
+            <div className="text-center py-16">
+              <div className="max-w-md mx-auto">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Search className="w-12 h-12 text-gray-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  Nenhum produto encontrado
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Tente ajustar os filtros ou fazer uma nova busca
+                </p>
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center px-6 py-3 bg-malibi-rose-600 text-white font-semibold rounded-lg hover:bg-malibi-rose-700 transition-colors"
+                >
+                  Ver todos os produtos
+                </button>
+              </div>
             </div>
           ) : (
             <div className={`grid gap-6 ${
@@ -314,86 +384,91 @@ export default function ProductsPage() {
               {products.map((product) => {
                 const images = getProductImages(product.imageUrls)
                 const lowestPrice = getLowestPrice(product)
-                const discount = hasDiscount(product)
                 
                 return (
-                  <Link
-                    key={product.id}
-                    href={`/produto/${product.slug}`}
-                    className={`group bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow ${
-                      viewMode === 'list' ? 'flex gap-4 p-4' : 'p-4'
+                  <article 
+                    key={product.id} 
+                    className={`bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-lg transition-all duration-300 group ${
+                      viewMode === 'list' ? 'flex' : ''
                     }`}
                   >
-                    <div className={`relative overflow-hidden rounded-lg bg-gray-100 ${
-                      viewMode === 'list' ? 'w-32 h-32 flex-shrink-0' : 'aspect-[3/4] mb-4'
-                    }`}>
-                      {images.length > 0 && (
-                        <Image
-                          src={images[0]}
-                          alt={product.name}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      )}
-                      {discount && (
-                        <div className="absolute top-2 left-2 bg-malibi-rose-500 text-white px-2 py-1 rounded text-xs font-medium">
-                          -{getDiscountPercentage(product)}%
-                        </div>
-                      )}
-                      {product.featured && (
-                        <div className="absolute top-2 right-2 bg-malibi-gold-500 text-white px-2 py-1 rounded text-xs font-medium">
-                          Destaque
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 space-y-2">
-                      <p className="text-xs text-malibi-rose-600 font-medium uppercase tracking-wide">
-                        {product.category.name}
-                      </p>
-                      <h3 className="font-semibold text-gray-900 group-hover:text-malibi-rose-600 transition-colors">
-                        {product.name}
-                      </h3>
-                      {viewMode === 'list' && (
-                        <p className="text-sm text-gray-600 line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg font-bold text-gray-900">
-                          R$ {lowestPrice.toFixed(2).replace('.', ',')}
-                        </span>
-                        {discount && (
-                          <span className="text-sm text-gray-500 line-through">
-                            R$ {Number(product.basePrice).toFixed(2).replace('.', ',')}
+                    <Link href={`/produto/${product.slug}`} className={viewMode === 'list' ? 'flex w-full' : 'block'}>
+                      <div className={`relative overflow-hidden bg-gray-100 ${
+                        viewMode === 'list' ? 'w-48 h-48 flex-shrink-0' : 'aspect-square'
+                      }`}>
+                        {images.length > 0 && (
+                          <Image
+                            src={images[0]}
+                            alt={`${product.name} - Lingerie Malíbi`}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-300"
+                            sizes={viewMode === 'grid' 
+                              ? "(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+                              : "192px"
+                            }
+                          />
+                        )}
+                        
+                        {product.featured && (
+                          <span className="absolute top-3 left-3 bg-malibi-rose-600 text-white px-2 py-1 rounded-full text-xs font-medium">
+                            Destaque
                           </span>
                         )}
+                        
+                        <button 
+                          className="absolute top-3 right-3 w-8 h-8 bg-white/90 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          aria-label={`Adicionar ${product.name} aos favoritos`}
+                        >
+                          <Heart size={16} className="text-gray-600 hover:text-malibi-rose-600" />
+                        </button>
                       </div>
-                      <div className="flex items-center space-x-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-4 h-4 fill-malibi-gold-400 text-malibi-gold-400" />
-                        ))}
-                        <span className="text-xs text-gray-500 ml-1">(4.8)</span>
+                      
+                      <div className={`p-4 ${viewMode === 'list' ? 'flex-1 flex flex-col justify-between' : ''}`}>
+                        <div>
+                          <p className="text-xs text-malibi-rose-600 font-medium uppercase tracking-wide mb-1">
+                            {product.category.name}
+                          </p>
+                          <h3 className="font-semibold text-gray-900 mb-2 group-hover:text-malibi-rose-600 transition-colors line-clamp-2">
+                            {product.name}
+                          </h3>
+                          {viewMode === 'list' && (
+                            <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+                              {product.description}
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="mt-auto">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-xl font-bold text-malibi-rose-600">
+                                R$ {lowestPrice.toFixed(2).replace('.', ',')}
+                              </span>
+                              <p className="text-xs text-gray-500">
+                                {product.variants.length > 1 && 'a partir de'}
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-1">
+                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <span className="text-sm text-gray-600">4.8</span>
+                            </div>
+                          </div>
+                          
+                          <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                            <span>{product.variants.length} variante{product.variants.length !== 1 ? 's' : ''}</span>
+                            <span>Em estoque</span>
+                          </div>
+                        </div>
                       </div>
-                      {/* Available sizes preview */}
-                      <div className="flex flex-wrap gap-1">
-                        {[...new Set(product.variants.map(v => v.size))].slice(0, 4).map((size) => (
-                          <span key={size} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                            {size}
-                          </span>
-                        ))}
-                        {[...new Set(product.variants.map(v => v.size))].length > 4 && (
-                          <span className="text-xs text-gray-400">+mais</span>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  </article>
                 )
               })}
             </div>
           )}
         </div>
       </div>
-    </div>
+    </>
   )
 }
