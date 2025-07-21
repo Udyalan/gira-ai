@@ -15,9 +15,13 @@ const SymbolTile: React.FC<Props> = ({ cell, delay = 0 }) => {
       title={meta.label + (golden ? ' (Golden)' : '')}
       style={{ animationDelay: `${delay}s` }}
     >
-      <span role="img" aria-label={meta.label}>
-        {meta.emoji}
-      </span>
+      {meta.img ? (
+        <img src={meta.img} alt={meta.label} draggable={false} />
+      ) : (
+        <span role="img" aria-label={meta.label}>
+          {meta.emoji}
+        </span>
+      )}
     </div>
   );
 };
