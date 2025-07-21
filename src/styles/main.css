@@ -64,3 +64,15 @@ button:disabled {
   border: 2px solid gold;
   box-shadow: 0 0 6px gold;
 }
+
+.symbol.scatter span {
+  filter: hue-rotate(90deg);
+}
+
+.symbol.wild span {
+  color: orange;
+}
+
+.hud span {
+  min-width: 90px;
+}
