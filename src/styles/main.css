@@ -53,3 +53,9 @@ button:disabled {
   margin-bottom: 1rem;
   font-weight: bold;
 }
+
+.win-info {
+  margin-top: 0.5rem;
+  font-weight: bold;
+  color: green;
+}
