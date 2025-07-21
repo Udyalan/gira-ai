@@ -1,14 +1,18 @@
 import React from 'react';
-import { SymbolId, SYMBOL_META } from '@utils/symbols';
+import { SymbolCell, SYMBOL_META } from '@utils/symbols';
 
 interface Props {
-  symbolId: SymbolId;
+  cell: SymbolCell;
 }
 
-const SymbolTile: React.FC<Props> = ({ symbolId }) => {
-  const meta = SYMBOL_META[symbolId];
+const SymbolTile: React.FC<Props> = ({ cell }) => {
+  const { id, golden } = cell;
+  const meta = SYMBOL_META[id];
   return (
-    <div className={`symbol ${symbolId}`} title={meta.label}>
+    <div
+      className={`symbol ${id} ${golden ? 'golden' : ''}`}
+      title={meta.label + (golden ? ' (Golden)' : '')}
+    >
       <span role="img" aria-label={meta.label}>
         {meta.emoji}
       </span>

@@ -11,8 +11,8 @@ const Grid: React.FC<Props> = ({ grid }) => {
     <div className="grid">
       {grid.map((row, rIdx) => (
         <div className="grid-row" key={rIdx}>
-          {row.map((symbolId, cIdx) => (
-            <SymbolTile key={cIdx} symbolId={symbolId} />
+          {row.map((cell, cIdx) => (
+            <SymbolTile key={cIdx} cell={cell} />
           ))}
         </div>
       ))}

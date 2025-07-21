@@ -1,7 +1,7 @@
-import { SymbolId } from './symbols';
+import { SymbolId, SymbolCell } from './symbols';
 import { randomChoice } from './random';
 
-export type SymbolGrid = SymbolId[][];
+export type SymbolGrid = SymbolCell[][];
 
 export const ROWS = 3;
 export const COLS = 5;
@@ -19,17 +19,20 @@ const SYMBOL_POOL: SymbolId[] = [
   'candy',
 ];
 
-function generateRandomSymbol(): SymbolId {
+function generateRandomSymbol(): SymbolCell {
   const r = Math.random();
-  if (r < 0.02) return 'wild'; // 2%
-  if (r < 0.04) return 'scatter'; // 2%
-  return randomChoice(SYMBOL_POOL);
+  let id: SymbolId;
+  if (r < 0.02) id = 'wild';
+  else if (r < 0.04) id = 'scatter';
+  else id = randomChoice(SYMBOL_POOL);
+  const golden = Math.random() < 0.1; // 10% chance of golden frame
+  return { id, golden };
 }
 
 export function generateRandomGrid(): SymbolGrid {
   const grid: SymbolGrid = [];
   for (let r = 0; r < ROWS; r++) {
-    const row: SymbolId[] = [];
+    const row: SymbolCell[] = [];
     for (let c = 0; c < COLS; c++) {
       row.push(generateRandomSymbol());
     }
@@ -87,7 +90,8 @@ export function evaluateGrid(grid: SymbolGrid): EvaluateResult {
 
     for (let col = 0; col < COLS; col++) {
       const row = line[col];
-      const symbol = grid[row][col];
+      const cell = grid[row][col];
+      const symbol = cell.id;
 
       if (symbol === 'wild') {
         coords.push([row, col]);
@@ -130,7 +134,7 @@ interface CascadeResult {
  * Executa cascatas sucessivas até que não haja mais vitórias.
  */
 export function spinWithCascades(initialGrid: SymbolGrid): CascadeResult {
-  let grid: (SymbolId | null)[][] = initialGrid.map((row) => [...row]);
+  let grid: (SymbolCell | null)[][] = initialGrid.map((row) => row.map((cell) => ({ ...cell })));
   let totalWin = 0;
   let cascades = 0;
 
@@ -143,12 +147,19 @@ export function spinWithCascades(initialGrid: SymbolGrid): CascadeResult {
 
     // Remover símbolos vencedores (viram null)
     matchedCoords.forEach(([r, c]) => {
-      grid[r][c] = null;
+      const cell = grid[r][c];
+      if (!cell) return;
+      if (cell.golden) {
+        // vira wild e perde moldura dourada
+        grid[r][c] = { id: 'wild', golden: false };
+      } else {
+        grid[r][c] = null;
+      }
     });
 
     // Colapsar cada coluna (quebra-cabeça estilo Tetris)
     for (let col = 0; col < COLS; col++) {
-      const colSymbols: SymbolId[] = [];
+      const colSymbols: SymbolCell[] = [];
       for (let row = ROWS - 1; row >= 0; row--) {
         const sym = grid[row][col];
         if (sym) colSymbols.push(sym);

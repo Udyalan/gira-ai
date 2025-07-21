@@ -28,3 +28,8 @@ export const SYMBOL_META: Record<SymbolId, SymbolMeta> = {
   wild: { id: 'wild', emoji: '⭐️', label: 'Wild', isWild: true },
   scatter: { id: 'scatter', emoji: '🎊', label: 'Scatter', isScatter: true },
 };
+
+export type SymbolCell = {
+  id: SymbolId;
+  golden?: boolean;
+};
