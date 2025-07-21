@@ -19,7 +19,7 @@ const SYMBOL_POOL: SymbolId[] = [
   'candy',
 ];
 
-function generateRandomSymbol(): SymbolCell {
+export function generateRandomSymbol(): SymbolCell {
   const r = Math.random();
   let id: SymbolId;
   if (r < 0.02) id = 'wild';
