@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import Grid from './Grid';
 import { generateRandomGrid, spinWithCascades } from '@utils/gridUtils';
 import { randomMultiplier } from '@utils/random';
+import confetti from 'canvas-confetti';
 import useLocalStorage from '@hooks/useLocalStorage';
 
 const SlotMachine: React.FC = () => {
@@ -48,6 +49,11 @@ const SlotMachine: React.FC = () => {
       setLastCascades(cascades);
 
       if (winWithMultiplier > 0) {
+        confetti({
+          particleCount: Math.min(200, winWithMultiplier),
+          spread: 70,
+          origin: { y: 0.3 },
+        });
         setCoins((prev) => prev + winWithMultiplier);
         setXp((prev) => prev + winWithMultiplier);
       }

@@ -21,6 +21,17 @@ body {
   display: flex;
 }
 
+@keyframes drop {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
 .symbol {
   width: 64px;
   height: 64px;
@@ -29,6 +40,36 @@ body {
   justify-content: center;
   font-size: 2rem;
   border: 1px solid #dcdcdc;
+  animation: drop 0.4s ease-out forwards;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.win-info {
+  margin-top: 0.5rem;
+  font-weight: bold;
+  color: green;
+  animation: flash 2s ease-in-out 3;
+}
+
+.symbol.golden {
+  border: 2px solid gold;
+  box-shadow: 0 0 6px gold;
+}
+
+.symbol.scatter span {
+  filter: hue-rotate(90deg);
+}
+
+.symbol.wild span {
+  color: orange;
+}
+
+.hud span {
+  min-width: 90px;
 }
 
 button {
@@ -52,27 +93,4 @@ button:disabled {
   gap: 2rem;
   margin-bottom: 1rem;
   font-weight: bold;
-}
-
-.win-info {
-  margin-top: 0.5rem;
-  font-weight: bold;
-  color: green;
-}
-
-.symbol.golden {
-  border: 2px solid gold;
-  box-shadow: 0 0 6px gold;
-}
-
-.symbol.scatter span {
-  filter: hue-rotate(90deg);
-}
-
-.symbol.wild span {
-  color: orange;
-}
-
-.hud span {
-  min-width: 90px;
 }

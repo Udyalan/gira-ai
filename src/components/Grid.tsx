@@ -12,7 +12,7 @@ const Grid: React.FC<Props> = ({ grid }) => {
       {grid.map((row, rIdx) => (
         <div className="grid-row" key={rIdx}>
           {row.map((cell, cIdx) => (
-            <SymbolTile key={cIdx} cell={cell} />
+            <SymbolTile key={cIdx} cell={cell} delay={(rIdx + cIdx) * 0.05} />
           ))}
         </div>
       ))}
