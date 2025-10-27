@@ -1,0 +1,120 @@
+html, body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #fffae6;
+  font-family: 'Trebuchet MS', sans-serif;
+  text-align: center;
+  color: #562b49;
+}
+
+.app {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.slot-machine {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.grid {
+  display: inline-block;
+  border: 4px solid #f4c430;
+  background: #fff;
+}
+
+.grid-row {
+  display: flex;
+}
+
+@keyframes drop {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.symbol {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  border: 1px solid #dcdcdc;
+  animation: drop 0.4s ease-out forwards;
+}
+
+.symbol img {
+  width: 80%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,0.2));
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.win-info {
+  margin-top: 0.5rem;
+  font-weight: bold;
+  color: green;
+  animation: flash 2s ease-in-out 3;
+}
+
+.symbol.golden {
+  border: 2px solid gold;
+  box-shadow: 0 0 6px gold;
+}
+
+.symbol.scatter span {
+  filter: hue-rotate(90deg);
+}
+
+.symbol.wild span {
+  color: orange;
+}
+
+.hud span {
+  min-width: 90px;
+}
+
+button {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  background: #f4c430;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.hud {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1rem;
+  font-weight: bold;
+}
